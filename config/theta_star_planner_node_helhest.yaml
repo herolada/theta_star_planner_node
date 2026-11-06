@@ -1,0 +1,53 @@
+theta_star_planner_node:
+  ros__parameters:
+    # Interfaces / frames
+    traversability_topic: "/terrain_map"
+    action_name: "compute_path_to_pose"
+    robot_base_frame: "base_link"
+    transform_tolerance: 0.1
+
+    # Costmap built from the traversability point cloud
+    traversability_field: "traversability"   # PointCloud2 field name (float, 0..1)
+    resolution: 0.15                            # m/cell; must match the grid spacing
+    lethal_threshold: 0.9                     # traversability >= this -> lethal obstacle
+
+    # Minimum robot-centered costmap rectangle (metres). The costmap is always sized
+    # dynamically to enclose the incoming cloud's XY extent; if costmap_width/height are
+    # both > 0, the bounds are additionally expanded (never shrunk) to enclose this
+    # rectangle, so the costmap never gets smaller than it even with a sparse/narrow cloud.
+    costmap_width: 12.0
+    costmap_height: 6.0
+    costmap_center_x: 5.4                      # offset ahead (+) of the robot, robot frame
+    costmap_center_y: 0.0                      # offset left (+) of the robot, robot frame
+    trav_max_dist: 0.0                         # m; drop cloud points farther than this from the robot (<=0 disables), only use this if you need to ensure, that the incoming terrain_map is bounded
+    
+    # Robot radius. Theta* plans for a point robot: the radius is only enforced when
+    # obstacle inflation is enabled below (as the inscribed radius around lethal cells).
+    robot_radius: 0.3
+
+    # Obstacle inflation (nav2 InflationLayer cost model) applied to the costmap built
+    # from the traversability cloud. <= 0 disables it (the costmap is then identical to
+    # smac_planner_node's). When enabled: cells within robot_radius of a lethal cell become
+    # untraversable (253), and cost decays as 252*exp(-cost_scaling_factor*(d - robot_radius))
+    # out to inflation_radius. Theta* paths hug obstacles otherwise.
+    inflation_radius: 0.0
+    cost_scaling_factor: 10.0
+
+    # Search (same names/meaning as smac_planner_node)
+    tolerance: 2.0                     # m; if the goal is unreachable, end at the closest reachable cell within this
+    start_in_bounds_dist: 4.0
+    goal_in_bounds_dist: 4.0
+    allow_unknown: true
+    max_iterations: 1000000            # expanded nodes, <= 0 unlimited
+    terminal_checking_interval: 5000  # cancel / time-limit check period, in expanded nodes
+    max_planning_time: 5.0            # s, <= 0 unlimited
+
+    # Theta* (mirrors nav2_theta_star_planner). These, plus tolerance, allow_unknown,
+    # max_iterations, terminal_checking_interval and max_planning_time above, can be changed
+    # at runtime (e.g. rqt_reconfigure); everything else is read once at startup.
+    how_many_corners: 8                        # 4 or 8 connected expansion
+    w_euc_cost: 1.0                            # weight on path length (higher -> tauter paths)
+    w_traversal_cost: 2.0                      # weight on (cost/252)^2 (higher -> stays in low-cost cells)
+    # Final pose orientation: false -> goal orientation, true -> direction of the last path
+    # segment (planner_id containing "respect_heading" forces the goal orientation).
+    use_final_approach_orientation: false
